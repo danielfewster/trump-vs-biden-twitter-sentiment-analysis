@@ -14,8 +14,6 @@
     "http": "0.0.1-security",
     "http-errors": "~1.6.3",
     "morgan": "~1.9.1",
-    "natural": "^2.1.5",
-    "stream": "0.0.2",
-    "twitter-lite": "^0.14.0"
+    "natural": "^2.1.5"
   }
 }
