@@ -1,18 +1,18 @@
 import {useEffect, useState} from 'react';
 import axios from "axios";
 
-export function useTwitterSearch (params) {
-    const [data, setData] = useState([]);
+export function useTwitterData (params) {
+    const [rowData, setRowData] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        getTwitterSearch(params)
+        getTwitterData(params)
         // manipulate response to output required formatting for ag-grid table
-        .then(response => {
-            //get data and do something here
-        }) 
         .then(data => {
-            setData(data)
+            console.log("got response from API")
+            setRowData(data)
+            setLoading(false);
             setError(null);
         })
         .catch(error => {
@@ -21,18 +21,20 @@ export function useTwitterSearch (params) {
     
       }, [params]);
       return{
-          data,
+          rowData,
+          loading,
           error
       }
 }
 
-function getTwitterSearch (params) {
+function getTwitterData (params) {
     // call api and return result
-    let url = process.env.REACT_APP_API_TWITTER;
+    // let url = process.env.REACT_APP_API_TWITTER;
+    let url = "http://" + window.location.hostname + "/search"
     // only add additional search info if available
     if( params !== undefined ){
        
-        url = url + "?query=" + search;
+        url = url + "?query=" + params;
     }
     return axios.get(url)  
 }
