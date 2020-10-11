@@ -1,7 +1,6 @@
 # dependencies
-/node_modules
 /express-app/node_modules
-/reac-app/node_modules
+/react-app/node_modules
 /.pnp
 .pnp.js
 
