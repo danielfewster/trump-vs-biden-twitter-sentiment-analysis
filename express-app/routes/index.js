@@ -10,8 +10,8 @@ const Analyzer = require('natural').SentimentAnalyzer;
 const stemmer = require('natural').PorterStemmer;
 const analyzer = new Analyzer("English", stemmer, "afinn");
 
-const twitterQuery = "trump";
-const timeBetweenQueries = 6000; // ms
+const twitterQuery = "presidential election";
+const timeBetweenQueries = 1000000; // ms
 
 const asyncRedis = require("async-redis"); // NOTE: async wrapper package for redis package
 const client = asyncRedis.createClient();
@@ -69,20 +69,17 @@ function addSentimentAndCompromiseToData(twitterData) {
     let topicsOnTweets = { 
         places: [],
         people: [],
-        organizations: []
     };
 
     let occurencesOfTopics = { // NOTE: I wish .topics() came organised -.- 
         places: {},
         people: {},
-        organizations: {}
     };
 
     twitterData.forEach(tweet => {
         const tweetDoc = compromise(tweet.text);
         tweetDoc.places().map(place => topicsOnTweets.places.push(place.text('reduced').trim()));
-        tweetDoc.people().map(place => topicsOnTweets.people.push(place.text('reduced').trim()));
-        tweetDoc.organizations().map(place => topicsOnTweets.organizations.push(place.text('reduced').trim()));
+        tweetDoc.people().map(person => topicsOnTweets.people.push(person.text('reduced').trim()));
 
         const wordsFromText = tokenizer.tokenize(tweet.text);
         wordsFromText.forEach(word => wordsFromTweets.push(word));
@@ -90,8 +87,9 @@ function addSentimentAndCompromiseToData(twitterData) {
         tweetsWithSentiment.push({
             id: tweet.id,
             text: tweet.text,
-            sentiment: analyzer.getSentiment(wordsFromText)
+            sentiment: analyzer.getSentiment(wordsFromText) * 100 // insert as percentage
         });
+        
     });
 
     tweetsWithSentiment.sort((a, b) => b.sentiment - a.sentiment);
@@ -109,7 +107,7 @@ function addSentimentAndCompromiseToData(twitterData) {
 
     return {
         sentimentRanked: sentimentRanked,
-        overallSentiment: analyzer.getSentiment(wordsFromTweets),
+        overallSentiment: analyzer.getSentiment(wordsFromTweets) * 100,
         occurencesOfTopics: occurencesOfTopics
     };
 }
@@ -148,19 +146,22 @@ function redisAdd(key, secondsToExpire, data) {
     }).catch(err => console.log(err));
 }
 
-router.get('/sentiment-over-time/:unix', (req, res) => {
+router.get('/sentiment', (req, res) => {
     const timeToExpire = 60 * 10; // 10 mins
-    redisCheck(req.params.unix, () => {
+
+    redisCheck("1602752400", () => {
         return dynamodbDocClient.scan({
             TableName : dynamodbInfo.TableName,
             FilterExpression: `${dynamodbInfo.RangeUnixKey} between :lastTime and :currTime`,
             ExpressionAttributeValues: {
-                ":lastTime": moment.unix(req.params.unix).unix(),
+                ":lastTime": moment.unix("1602752400").unix(),
                 ":currTime": moment().unix()
             }
         }).promise()
         .then(data => {
-            redisAdd(req.params.unix, timeToExpire, data);
+            redisAdd("1602752400", timeToExpire, data);
+
+
             return data;
         })
         .catch(err => res.json({ error: err })); 

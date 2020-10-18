@@ -7,6 +7,7 @@ const logger = require('morgan');
 // const cors = require('cors')
 
 const indexRouter = require('./routes/index');
+const apiRouter = require('./routes/api');
 // const helmet = require('helmet');
 const app = express();
 
@@ -28,7 +29,7 @@ app.use((req, res, next) => { // NOTE: when did this get here?
     else next();
 });
 */
-
+app.use('/', apiRouter);
 app.use('/', indexRouter);
 
 module.exports = app;
