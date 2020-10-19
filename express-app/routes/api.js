@@ -51,7 +51,7 @@ function createDynamoDB(candidate) {
         RangeUnixKey: "unixTimeOfQuery", 
         GenerateKeys: function() {
             return {
-                TableName: this.TableName, // NOTE: this might not work but it'd be nice
+                TableName: this.TableName,
                 Item: {
                     [this.HashDateKey] : moment().format('DD-MM-YYYY'),
                     [this.RangeUnixKey] : moment().unix()
