@@ -1,7 +1,7 @@
 import React from "react";
 
 // reactstrap components
-import { Button, Container } from "reactstrap";
+import { Button, Container, Row, Col } from "reactstrap";
 
 // core components
 
@@ -33,8 +33,13 @@ function LandingPageHeader() {
         ></div>
         <div className="content-center">
           <Container>
-            <h1 className="title">Welcome to Twitter Analytics.</h1>
+            <Row>
+            <Col>
+            <h1 className="title">Welcome to Presidential Election Twitter Analytics</h1>
+            </Col>
+            </Row>
           </Container>
+
         </div>
       </div>
     </>

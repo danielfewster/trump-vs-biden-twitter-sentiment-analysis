@@ -1,0 +1,33 @@
+version: '3'
+
+services:
+#################
+#  API CONTAINER
+#################
+    api:
+        build:
+            context: ./express-app
+        image: samchipp/twitter:api
+        expose: 
+            - 3001
+        ports: 
+            - 3001:3001
+        volumes:
+            - ./expres-app/src:/src/express-app/api/src
+        command: npm run start
+
+####################
+#  CLIENT CONTAINER
+####################
+    client:
+        build:
+            context: ./react-app
+        image: samchipp/twitter:client
+        expose:
+            - 3000
+        ports: 
+            - 3000:3000
+        stdin_open: true
+        volumes:
+            - ./react-app/src:/src/app/react-app/src
+            - ./react-app/public:/app/react-app/public

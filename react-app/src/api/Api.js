@@ -8,7 +8,6 @@ export function useTwitterData (params) {
 
     useEffect(() => {
         getTwitterData(params)
-        // manipulate response to output required formatting for ag-grid table
         .then(data => {
             console.log("got response from API")
             setRowData(data)
@@ -32,9 +31,5 @@ function getTwitterData (params) {
     // let url = process.env.REACT_APP_API_TWITTER;
     let url = "http://" + window.location.hostname + "/search"
     // only add additional search info if available
-    if( params !== undefined ){
-       
-        url = url + "?query=" + params;
-    }
     return axios.get(url)  
 }

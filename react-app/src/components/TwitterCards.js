@@ -20,7 +20,6 @@ import {
 function TwitterCards(props) {
   const [iconPills, setIconPills] = React.useState("1");
   const [pills, setPills] = React.useState("1");
- 
 
   return (
     <>
@@ -44,9 +43,8 @@ function TwitterCards(props) {
                     </NavItem>
                     <NavItem>
                       <NavLink>
-                        Sentiment: {Math.round(props.sentiment * 100)}%
+                        Sentiment: {props.sentiment}%
                       </NavLink>
-                     
                     </NavItem>
                   </Nav>
                 </CardHeader>

@@ -11,7 +11,7 @@ const stemmer = require('natural').PorterStemmer;
 const analyzer = new Analyzer("English", stemmer, "afinn");
 
 const apiURL = "https://api.twitter.com/2/tweets/search/recent"
-const timeBetweenQueries = 9000; // ms
+const timeBetweenQueries = 90000; // ms
 
 const asyncRedis = require("async-redis"); // NOTE: async wrapper package for redis package
 const client = asyncRedis.createClient();
@@ -91,8 +91,8 @@ function addSentimentAndCompromiseToData(twitterData) {
         people: [],
     };
     let occurencesOfTopics = { // NOTE: I wish .topics() came organised -.- 
-        places: [{}],
-        people: [{}],
+        places: {},
+        people: {},
     };
 
     twitterData.forEach(tweet => {
@@ -185,89 +185,9 @@ router.get('/api/overall-sentiment/:unix/:candidate', (req, res) => {
         })
         .catch(err => res.json({ error: err })); 
     })
-    .then(data => {            
-            let topPosSentiment = [];
-            let topNegSentiment = [];
-            let oSentiment = 0;
-            let tempTopics = {
-                places: [],
-                people: [],
-            };
-
-            let finalTopics = {
-                places: {},
-                people: {},
-            };
-
-            data.Items.forEach(object => {
-                    let o = JSON.parse(object.info);
-                    o.sentimentRanked.topPos.forEach(e => topPosSentiment.push(e));
-                    o.sentimentRanked.topNeg.forEach(e => topNegSentiment.push(e));
-                    oSentiment = oSentiment + o.overallSentiment;
-                    tempTopics.places.push(o.occurencesOfTopics.places);
-                    tempTopics.people.push(o.occurencesOfTopics.people);
-                }  
-            )
-
-
-            // why the fuck doesn't this work.
-            // I honestly can't see why this won't return the value I want. 
-            // I have tried to run this and also pass it directly to the final topics variable. 
-            const countTopics = data => {
-                let result = {}; //(1)
-              
-                data.forEach(topic => { //(2)
-                  for (let [key, value] of Object.entries(topic)) { //(3)
-                    if (result[key]) { //(4)
-                      result[key] += value; //(5)
-                    } else { //(6)
-                      result[key] = value;
-                    }
-                   }
-                   console.log(result); // this gives me the result that I want on the final pass
-                });
-                console.log(result); // this has no value and wont console log WTF!!!
-                return result; //(7)
-            };
-              
-            const people = countTopics(tempTopics.people);
-               
-            
-            let uniqPos = topPosSentiment.filter((thing, index, self) =>
-                index === self.findIndex((t) => (
-                t.id === thing.id
-                ))
-            )
-            let uniqNeg = topNegSentiment.filter((thing, index, self) =>
-                index === self.findIndex((t) => (
-                t.id === thing.id
-                ))
-            )
-            let sentimentRanked = {
-                topPos: uniqPos.sort((a, b) => b.sentiment - a.sentiment).slice(0, 5),
-                topNeg: uniqNeg.sort((a, b) => b.sentiment - a.sentiment).slice(0).slice(-5)
-            }
-            oSentiment = oSentiment / data.Items.length
-            let processedData = {
-                sentimentRanked: sentimentRanked,
-                overallSentiment: oSentiment,
-                occurencesOfTopics: finalTopics,
-            }
-            res.json(processedData);
-    })
-    .catch(err => res.json({ error: err })); 
-});
-
-router.get('/api/latest/:candidate', (req, res) => { 
-    dynamodbDocClient.query({
-        TableName: "TwitterData" + req.params.candidate,
-        KeyConditionExpression: `unixTimeOfQuery = :currDate`,
-        ExpressionAttributeValues: { ":currDate": moment().format('DD-MM-YYYY') },
-        ScanIndexForward: "false",
-        Limit: 1
-    }).promise()
     .then(data => res.json(data))
     .catch(err => res.json({ error: err })); 
 });
+
 
 module.exports = router;

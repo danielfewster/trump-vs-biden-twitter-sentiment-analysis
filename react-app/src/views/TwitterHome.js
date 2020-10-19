@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from "react";
+import React, {useState, useEffect, useContext, createContext, useReducer} from "react";
 import axios from "axios";
 // reactstrap components
 import {
@@ -8,6 +8,10 @@ import {
   InputGroupText,
   InputGroup,
   Container,
+  UncontrolledButtonDropdown,
+  DropdownToggle,
+  DropdownMenu,
+  DropdownItem,
   Row,
   Col,
   FormGroup,
@@ -22,14 +26,50 @@ import TwitterNavbar from "components/Navbars/TwitterNavBar.js"
 import TwitterCards from "components/TwitterCards";
 import { useTwitterData } from "api/Api.js";
 import Notifications from "./index-sections/Notifications";
+import QueryNav from "components/TwitterQueryNav/QueryNav.js"
+import ChooseTime from "components/TwitterQueryNav/ChooseTime.js"
+import { resolveTripleslashReference } from "typescript";
+import GraphModal from "components/TwitterModal/GraphModal.js";
+import TopicsModal from "components/TwitterModal/TopicsModal.js"
 
+export const queryContext = createContext();
+const moment = require('moment');
+const apiURL = "overall-sentiment/"
+
+const initialState = {
+  time: null,
+  candidate: null,
+  latest: false
+};
+const reducer = (state, action) => {
+  switch (action.type) {
+    case "Biden":
+      return {
+        ...state,
+        candidate: action.payload,
+      };
+    case "Trump":
+      return {
+        ...state,
+        candidate: action.payload,
+       
+      }
+    case "Time":
+      return{
+        ...state,
+        time: action.payload.time
+      }
+    default:
+      return state;
+  }
+};
 
 function ShowSentiment (props) {
   let img = require("assets/img/neutral-smile.png")
   if(Math.sign(props.sentiment) === -1) {
     img = require("assets/img/sad-smile.png");
   } else if(Math.sign(props.sentiment) === 1) {
-    img = require("assets/img/sad-smile.png");
+    img = require("assets/img/happy-smile.png");
   }
     return(
     <div>
@@ -44,7 +84,7 @@ function ShowSentiment (props) {
         </Row>
         <Row>
         <Col className="ml-auto mr-auto text-center" md="8">
-          <div> {props.search !== "" ? <h4>The current sentiment analysis indicates a {props.sentiment}%</h4> : <div></div>}
+          <div> {props.sentiment !== null ? <h4>The current sentiment analysis indicates a {Math.round(props.sentiment)}%</h4> : <div></div>}
             
           </div>
         </Col>
@@ -54,102 +94,160 @@ function ShowSentiment (props) {
 }
 
 function TwitterHome() {
-  const [search , setSearch] = useState("");
+
   // const [tweetData, setTweetData] = useState();
-  const [sentiment, setSentiment] = useState();
+  const [sentiment, setSentiment] = useState(0);
   const [topFivePositive, setTopFivePositive] = useState([]);
   const [topFiveNegative, setTopFiveNegative] = useState([]);
-  
-
-  const handleKeyDown = (e) => {
-    if(e.key === "Enter") {
-      setSearch(e.target.value); 
-    }
-  }
+  const [info, setInfo] = useState([])
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const [peopleTopics, setPeopleTopics] = useState([]);
+  const [placesTopics, setPlacesTopics] = useState([]);
 
   useEffect(() => {
-    let url = "http://" + window.location.hostname +  ":3001/search"
-    if(search !== "") {
-      axios.get(url, {
-        params: {
-          query: search
-        }
-      })
+    if(state.time !== null & state.candidate !== null) {
+      let request = "/api/overall-sentiment/" + state.time +"/" + state.candidate;
+      axios.get(request)
       .then((response) => {
 
-        let tweets = response.data.tweetsWithSentiment
-        tweets.sort((a,b) => parseFloat(a.sentiment) - parseFloat(b.sentiment));
-        setTopFivePositive(tweets.slice(0).slice(-5))
-        setTopFiveNegative(tweets.slice(0, 5))
-       
-        let sentimentData = response.data.overallSentiment * 100;
-        setSentiment(sentimentData);
+            let overallTopPos = [];
+            let overallTopNeg = [];
+            let oSentiment = 0;
+            let tempTopics = {
+                places: [],
+                people: [],
+            };
+            let graphInfoSentiment = [];
+            let graphInfoLables = [];
+            let graphInfo = {};
+
+            response.data.Items.forEach(object => {
+                    let o = JSON.parse(object.info);
+                    o.sentimentRanked.topPos.forEach(e => overallTopPos.push(e));
+                    o.sentimentRanked.topNeg.forEach(e => overallTopNeg.push(e));
+                    oSentiment += o.overallSentiment;
+                    tempTopics.places.push(o.occurencesOfTopics.places);
+                    tempTopics.people.push(o.occurencesOfTopics.people);
+                    graphInfoSentiment.push(o.overallSentiment);
+                    graphInfoLables.push(moment(object.unixTimeOfQuery).format("ddd, h:mA"));
+                  }  
+            )
+                
+            graphInfo = {
+              graphInfoLables,
+              graphInfoSentiment
+            }
+      
+
+            const countTopics = data => {
+                let result = {}; //(1)
+              
+                data.forEach(topic => { //(2)
+                  for (let [key, value] of Object.entries(topic)) { //(3)
+                    if (result[key]) { //(4)
+                      result[key] += value; //(5)
+                    } else { //(6)
+                      result[key] = value;
+                    }
+                   }
+            
+                });
+                return result; //(7)
+            };
+              
+            const people =  Object.entries(countTopics(tempTopics.people)).sort((a, b) =>b[1] - a[1]).slice(0, 5);
+            const places =  Object.entries(countTopics(tempTopics.places)).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+            let uniqPos = overallTopPos.filter((thing, index, self) =>
+                index === self.findIndex((t) => (
+                t.id === thing.id || t.text === thing.text
+                ))
+            )
+            let uniqNeg = overallTopNeg.filter((thing, index, self) =>
+                index === self.findIndex((t) => (
+                t.id === thing.id || t.text === thing.text
+                ))
+            )
+            setInfo(graphInfo);
+            setPeopleTopics(people);
+            setPlacesTopics(places);
+            setSentiment(oSentiment / response.data.Items.length)
+            setTopFiveNegative(uniqNeg.sort((a, b) => b.sentiment - a.sentiment).slice(0).slice(-5).reverse())
+            setTopFivePositive(uniqPos.sort((a, b) => b.sentiment - a.sentiment).slice(0, 5))
+  
+        
       })
     }
-  }, [search]);
-
-  let progressColor = "progress-container progress-success";
-  if(sentiment < 0) {
-    let  progressColor = "progress-container progress-primary";
-  }
+  }, [state.time, state.candidate]);
 
 
   return (
     <>
-      <TwitterNavbar />
+    <queryContext.Provider
+      value={{
+        state,
+        dispatch
+      }}
+      >
+    <TwitterNavbar />
       <div className="wrapper">
         <LandingPageHeader />
-        <div className="section section-about-us">
+        <QueryNav />
+        <div >
+          <ChooseTime />
           <Container>
             <Row>
-              <Col className="ml-auto mr-auto text-center" md="8">
-              <FormGroup>
-                  <Input
-                    onKeyDown={handleKeyDown}
-                    placeholder="Enter comma seperated list of search values"
-                    type="text"
-                  ></Input>
-                </FormGroup>
+              <Col>
+                {sentiment !== 0 ? <ShowSentiment sentiment={sentiment} />: <div/>}
               </Col>
-              </Row>
-             <ShowSentiment sentiment={sentiment} search={search} />
+            </Row>
+            <Row>
+            <Col>
+              {sentiment !== 0 ?<GraphModal data={info} />: <div/>}
+              </Col>
+              <Col>
+              {sentiment !== 0 ?<TopicsModal title="Places" data={placesTopics} />: <div/>}
+              </Col>
+              <Col>
+              {sentiment !== 0 ?  <TopicsModal title="People" data={peopleTopics} />: <div/>}
+              </Col>
+            </Row>
+           
+      
             <div className="separator separator-primary"></div>
           </Container>
         </div>
         <div className="section section-contact-us text-center">
           <Container>
-    
             <Row>
-              
                 <Col className="text-center ml-auto mr-auto" lg="6" md="8">
                 {topFivePositive.length ? 
                 <div>
                   <p className="description">Top 5 positive tweets</p>
                   {topFivePositive.map(function(d, index){
-                    return (<TwitterCards text={d.text} sentiment={d.sentiment} />)
+                    return (<TwitterCards key={index} text={d.text} sentiment={d.sentiment} />)
                   })}
                    
                 </div>
                 : <div></div> 
                 }
                 </Col> 
-              
-             
               <Col>
               {topFiveNegative.length ? <div>
                 <p className="description">Top 5 negative tweets</p>
                   {topFiveNegative.map(function(d, index){
-                    return (<TwitterCards text={d.text} sentiment={d.sentiment} />)
+                    return (<TwitterCards key={index} text={d.text} sentiment={d.sentiment} />)
                   })}
                 </div> : <div></div>
-              }
-                
+              } 
               </Col>  
             </Row>
           </Container>
         </div>
         <DefaultFooter />
       </div>
+    </queryContext.Provider>
+
     </>
   );
 }
