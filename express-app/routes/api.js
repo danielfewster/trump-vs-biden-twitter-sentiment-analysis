@@ -10,99 +10,101 @@ const Analyzer = require('natural').SentimentAnalyzer;
 const stemmer = require('natural').PorterStemmer;
 const analyzer = new Analyzer("English", stemmer, "afinn");
 
-const apiURL = "https://api.twitter.com/2/tweets/search/recent"
-const timeBetweenQueries = 120000; // m
-const redis = require("redis");
-const client = redis.createClient({
-    host: "redis",
-    port: 6379
-});
-const asyncRedis = require("async-redis");
-const asyncRedisClient = asyncRedis.decorate(client);
-
-// const asyncRedis = require("async-redis"); 
-// // NOTE: async wrapper package for redis package
-// const client = asyncRedis.createClient();
-asyncRedisClient.on("error", err => console.error(err));
-
 const AWS = require('aws-sdk');
+AWS.config.update({
+    region: "ap-southeast-2"
+});
 
-const SESConfig = {
+/*
+AWS.config.update({
     accessKeyId: process.env.AWS_ACCESS_KEY,
     accessSecretKey: process.env.AWS_SECRET_KEY,
     region: "ap-southeast-2"
-}
-
-AWS.config.update(SESConfig);
+});
+*/
 
 const dynamodb = new AWS.DynamoDB();
 const dynamodbDocClient = new AWS.DynamoDB.DocumentClient();
 
-function axiosOptions (candidate) {
-    return{
-        headers: {
-            "Authorization" : "Bearer " + process.env.TWITTER_BEARER_TOKEN
-        },
-        params: {
-            query: candidate + " election",
-            max_results: "50"
-        }
-    }
-}
+const dynamodbInfo = {};
+const twitterQueriesToTrack = ["Trump", "Biden"];
+twitterQueriesToTrack.forEach(query => dynamodbInfo[query] = createDynamoDB(query));
 
-function GenerateKeys (candidate) {
-    return {
-        TableName: "TwitterData" + candidate,
-        Item: {
-            "dateOfQuery" : moment().format('DD-MM-YYYY'),
-            "unixTimeOfQuery" : moment().unix()
-        }
-    }
-}
-function GenerateKeysWithInfo (info, candidate) {
-    let temp = GenerateKeys(candidate); temp.Item.info = info; return temp;
-}
+const apiURL = "https://api.twitter.com/2/tweets/search/recent";
+const timeBetweenQueries = 10000; // ms
 
-function dynamodbTable(candidate) {
-    let dbInfo = {
-        TableName: "TwitterData" + candidate, 
-        HashDateKey: "dateOfQuery", 
+const asyncRedis = require("async-redis");
+const asyncRedisClient = asyncRedis.createClient();
+// NOTE: this should work as asyncRedis has everything redis does, just async over a wrapper, if not just changed back to decorate
+/*
+const asyncRedisClient = asyncRedis.createClient({
+    host: "redis",
+    port: 6379
+});
+*/
+asyncRedisClient.on("error", err => console.error(err));
+
+function createDynamoDB(candidate) {
+    const info = {
+        TableName: "TempTwitterData" + candidate, 
+        HashDateKey: "dateOfQuery",
         RangeUnixKey: "unixTimeOfQuery", 
-    }
-    return (
-        dynamodb.createTable({
-            TableName : dbInfo.TableName,
-            KeySchema: [       
-                { AttributeName: dbInfo.HashDateKey, KeyType: "HASH"},
-                { AttributeName: dbInfo.RangeUnixKey, KeyType: "RANGE"} 
-            ],
-            AttributeDefinitions: [    
-                { AttributeName: dbInfo.HashDateKey, AttributeType: "S" },
-                { AttributeName: dbInfo.RangeUnixKey, AttributeType: "N" }
-            ],
-            ProvisionedThroughput: {       
-                ReadCapacityUnits: 5, 
-                WriteCapacityUnits: 5
+        GenerateKeys: function() {
+            return {
+                TableName: this.TableName, // NOTE: this might not work but it'd be nice
+                Item: {
+                    [this.HashDateKey] : moment().format('DD-MM-YYYY'),
+                    [this.RangeUnixKey] : moment().unix()
+                }
             }
-        }, err => {
-            if (err)
-                if (err.code === "ResourceInUseException") console.log("The DynamoDB table already exists");
-                else console.error("Unable to create table. Error JSON:", JSON.stringify(err, null, 2));
-            else console.log("Created DynamoDB table");
-        })
-    )
-}
-dynamodbTable('Trump');
-dynamodbTable('Biden');
+        },
+        GenerateKeysWithInfo: function(info) {
+            let temp = this.GenerateKeys(); temp.Item.info = info; return temp;
+        },
+        axiosOptions: {
+            headers: {
+                "Authorization" : "Bearer " + process.env.TWITTER_BEARER_TOKEN
+            },
+            params: {
+                query: candidate + " election",
+                max_results: Math.round(100 / twitterQueriesToTrack.length).toString() // NOTE: keep this split under 100
+            }
+        }
+    };
 
+    dynamodb.createTable({
+        TableName : info.TableName,
+        KeySchema: [       
+            { AttributeName: info.HashDateKey, KeyType: "HASH"},
+            { AttributeName: info.RangeUnixKey, KeyType: "RANGE"} 
+        ],
+        AttributeDefinitions: [    
+            { AttributeName: info.HashDateKey, AttributeType: "S" },
+            { AttributeName: info.RangeUnixKey, AttributeType: "N" }
+        ],
+        ProvisionedThroughput: {       
+            ReadCapacityUnits: 5, 
+            WriteCapacityUnits: 5
+        }
+    }, err => {
+        if (err)
+            if (err.code === "ResourceInUseException") console.log(`The DynamoDB table '${info.TableName}' already exists`);
+            else console.error("Unable to create table. Error JSON:", JSON.stringify(err, null, 2));
+        else console.log(`Created DynamoDB table: ${info.TableName}`);
+    });
+
+    return info;
+}
 
 function addSentimentAndCompromiseToData(twitterData) {
     let wordsFromTweets = [];
     let tweetsWithSentiment = [];
+
     let topicsOnTweets = { 
         places: [],
         people: [],
     };
+    
     let occurencesOfTopics = { // NOTE: I wish .topics() came organised -.- 
         places: {},
         people: {},
@@ -114,23 +116,24 @@ function addSentimentAndCompromiseToData(twitterData) {
         tweetDoc.people().map(person => topicsOnTweets.people.push(person.text('reduced').trim()));
 
         const wordsFromText = tokenizer.tokenize(tweet.text);
-        const sentiment = Math.round(analyzer.getSentiment(wordsFromText) * 100)
-        if(sentiment != 0) {
-            wordsFromText.forEach(word => wordsFromTweets.push(word));
-        }
+        const sentiment = Math.round(analyzer.getSentiment(wordsFromText) * 100);
+
         tweetsWithSentiment.push({
             id: tweet.id,
             text: tweet.text,
-            sentiment: sentiment 
-        });  
+            sentiment: sentiment
+        });
     });
     
     tweetsWithSentiment.sort((a, b) => b.sentiment - a.sentiment);
-
     const sentimentRanked = {
         topPos: tweetsWithSentiment.slice(0, 5),
-        topNeg: tweetsWithSentiment.slice(0).slice(-5)
+        topNeg: tweetsWithSentiment.slice(-5)
     };
+
+    [...sentimentRanked.topPos, ...sentimentRanked.topNeg].forEach(tweet => {
+        tokenizer.tokenize(tweet.text).forEach(word => wordsFromTweets.push(word));
+    });
 
     const countOccurences = (arr, valToCount) => arr.reduce((acc, currVal) => currVal === valToCount ? acc + 1 : acc, 0);
     for (const [topicType, topicTypeOnTweets] of Object.entries(topicsOnTweets)) {
@@ -139,27 +142,26 @@ function addSentimentAndCompromiseToData(twitterData) {
             : occurencesOfTopics[topicType][topic] = countOccurences(topicTypeOnTweets, topic));        
     }
 
-
     return {
         sentimentRanked: sentimentRanked,
         overallSentiment: analyzer.getSentiment(wordsFromTweets) * 100,
-        occurencesOfTopics: occurencesOfTopics,
-    };
+        occurencesOfTopics: occurencesOfTopics
+    }
 }
+
 function pushTwitterData(candidate) {
-    return axios.get(apiURL, axiosOptions(candidate))
-    .then(searchRes => {
-        const resultJSON = JSON.stringify(addSentimentAndCompromiseToData(searchRes.data.data)); // NOTE: might need to be async, sequential should be fine here though)
-        dynamodbDocClient.put(GenerateKeysWithInfo(resultJSON, candidate)).promise().then(() => {
-            console.log('Successfully uploaded data to DynamoDB at  TwitterData' + candidate);
-        }).catch(err => console.error(err));  
-    })
-    .catch(err => console.error(err))   
+    return axios.get(apiURL, dynamodbInfo[candidate].axiosOptions)
+        .then(searchRes => {
+            const resultJSON = JSON.stringify(addSentimentAndCompromiseToData(searchRes.data.data)); // NOTE: might need to be async, sequential should be fine here though)
+            dynamodbDocClient.put(dynamodbInfo[candidate].GenerateKeysWithInfo(resultJSON)).promise().then(() => {
+                console.log(`Successfully uploaded data to DynamoDB at ${dynamodbInfo[candidate].TableName}`);
+            }).catch(err => console.error(err));
+        })
+        .catch(err => console.error(err));
 }
 
 setInterval(() => { // NOTE: adds a new set of data to dynamodb 
-    pushTwitterData("Trump");
-    pushTwitterData("Biden");
+    Object.keys(dynamodbInfo).forEach(table => pushTwitterData(table));
 }, timeBetweenQueries);
 
 function redisCheck(key, callback) {
@@ -177,30 +179,26 @@ function redisAdd(key, secondsToExpire, data) {
     }).catch(err => console.log(err));
 }
 
-
-  
-
 router.get('/api/overall-sentiment/:unix/:candidate', (req, res) => {
     const timeToExpire = 60 * 10; // 10 mins
+    const redisKey = req.params.unix + req.params.candidate;
 
-    redisCheck(req.params.unix + req.params.candidate , () => {
+    redisCheck(redisKey, () => {
         return dynamodbDocClient.scan({
-            TableName : "TwitterData" + req.params.candidate,
-            FilterExpression: `unixTimeOfQuery between :lastTime and :currTime`,
+            TableName : dynamodbInfo[req.params.candidate].TableName,
+            FilterExpression: `${dynamodbInfo[req.params.candidate].RangeUnixKey} between :lastTime and :currTime`,
             ExpressionAttributeValues: {
                 ":lastTime": moment.unix(req.params.unix).unix(),
                 ":currTime": moment().unix()
             }
         }).promise()
         .then(data => {
-            redisAdd(req.params.unix + req.params.candidate, timeToExpire, data);
+            redisAdd(redisKey, timeToExpire, data);
             return data;
-        })
-        .catch(err => res.json({ error: err })); 
+        });
     })
     .then(data => res.json(data))
     .catch(err => res.json({ error: err })); 
 });
-
 
 module.exports = router;
