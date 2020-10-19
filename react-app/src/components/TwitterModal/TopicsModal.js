@@ -1,21 +1,14 @@
 import React from "react";
-// react plugins that creates an input with a date picker
-import Datetime from "react-datetime";
+
 // reactstrap components
 import {
   Button,
-  FormGroup,
   Container,
   Modal,
   ModalBody,
   Row,
   Col,
-  UncontrolledTooltip,
-  PopoverBody,
-  PopoverHeader,
-  UncontrolledPopover,
 } from "reactstrap";
-import LineGraph from "components/LineGraph/LineGraph.js"
 
 // core components
 

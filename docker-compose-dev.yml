@@ -12,8 +12,6 @@ services:
 #  API CONTAINER
 #################
     api:
-        build:
-            context: ./express-app
         image: samchipp/twitter:api
         expose: 
             - 3001
@@ -34,8 +32,6 @@ services:
 #  CLIENT CONTAINER
 ####################
     client:
-        build:
-            context: ./react-app
         image: samchipp/twitter:client
         expose:
             - 3000

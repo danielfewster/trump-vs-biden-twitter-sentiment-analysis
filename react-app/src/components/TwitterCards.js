@@ -10,16 +10,12 @@ import {
   Nav,
   TabContent,
   TabPane,
-  Container,
-  Row,
-  Col,
 } from "reactstrap";
 
 // core components
 
 function TwitterCards(props) {
-  const [iconPills, setIconPills] = React.useState("1");
-  const [pills, setPills] = React.useState("1");
+  const pills ="1";
 
   return (
     <>

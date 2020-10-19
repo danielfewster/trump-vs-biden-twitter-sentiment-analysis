@@ -1,17 +1,17 @@
 FROM node:erbium as build
-RUN mkdir -p /app/client
-WORKDIR /app/client
+RUN mkdir -p /app/react-app
+WORKDIR /app/react-app
 
-COPY package.json /app/client/
+COPY package.json /app/react-app/
 ENV INLINE_RUNTIME_CHUNK=false
 
 RUN npm install
 
-COPY . /app/client/
+COPY . /app/react-app/
 RUN npm run build
 
 
 FROM nginx:alpine
-COPY --from=build /app/client/build /usr/share/nginx/html
+COPY --from=build /app/react-app/build /usr/share/nginx/html
 COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 CMD ["nginx", "-g", "daemon off;"]

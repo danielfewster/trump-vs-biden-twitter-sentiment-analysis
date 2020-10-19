@@ -1,41 +1,25 @@
-import React, {useState, useEffect, useContext, createContext, useReducer} from "react";
+import React, {useState, useEffect, createContext, useReducer} from "react";
 import axios from "axios";
 // reactstrap components
 import {
-  Button,
-  Input,
-  InputGroupAddon,
-  InputGroupText,
-  InputGroup,
   Container,
-  UncontrolledButtonDropdown,
-  DropdownToggle,
-  DropdownMenu,
-  DropdownItem,
   Row,
   Col,
-  FormGroup,
-  Progress
 } from "reactstrap";
 
 // core components
-import ExamplesNavbar from "components/Navbars/ExamplesNavbar.js";
 import LandingPageHeader from "components/Headers/LandingPageHeader.js";
 import DefaultFooter from "components/Footers/DefaultFooter.js";
 import TwitterNavbar from "components/Navbars/TwitterNavBar.js"
 import TwitterCards from "components/TwitterCards";
-import { useTwitterData } from "api/Api.js";
-import Notifications from "./index-sections/Notifications";
 import QueryNav from "components/TwitterQueryNav/QueryNav.js"
 import ChooseTime from "components/TwitterQueryNav/ChooseTime.js"
-import { resolveTripleslashReference } from "typescript";
+
 import GraphModal from "components/TwitterModal/GraphModal.js";
 import TopicsModal from "components/TwitterModal/TopicsModal.js"
 
 export const queryContext = createContext();
 const moment = require('moment');
-const apiURL = "overall-sentiment/"
-
 const initialState = {
   time: null,
   candidate: null,
@@ -106,7 +90,7 @@ function TwitterHome() {
 
   useEffect(() => {
     if(state.time !== null & state.candidate !== null) {
-      let request = "/api/overall-sentiment/" + state.time +"/" + state.candidate;
+      let request = "http://" + window.location.hostname+ ":3001/api/overall-sentiment/" + state.time +"/" + state.candidate;
       axios.get(request)
       .then((response) => {
 
@@ -180,7 +164,6 @@ function TwitterHome() {
     }
   }, [state.time, state.candidate]);
 
-
   return (
     <>
     <queryContext.Provider
@@ -247,7 +230,6 @@ function TwitterHome() {
         <DefaultFooter />
       </div>
     </queryContext.Provider>
-
     </>
   );
 }

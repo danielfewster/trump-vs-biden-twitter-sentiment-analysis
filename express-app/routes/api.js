@@ -11,16 +11,29 @@ const stemmer = require('natural').PorterStemmer;
 const analyzer = new Analyzer("English", stemmer, "afinn");
 
 const apiURL = "https://api.twitter.com/2/tweets/search/recent"
-const timeBetweenQueries = 90000; // ms
+const timeBetweenQueries = 120000; // m
+const redis = require("redis");
+const client = redis.createClient({
+    host: "redis",
+    port: 6379
+});
+const asyncRedis = require("async-redis");
+const asyncRedisClient = asyncRedis.decorate(client);
 
-const asyncRedis = require("async-redis"); // NOTE: async wrapper package for redis package
-const client = asyncRedis.createClient();
-client.on("error", err => console.error(err));
+// const asyncRedis = require("async-redis"); 
+// // NOTE: async wrapper package for redis package
+// const client = asyncRedis.createClient();
+asyncRedisClient.on("error", err => console.error(err));
 
 const AWS = require('aws-sdk');
-const { request } = require('http');
-AWS.config.getCredentials(err => { if (err) console.log(err.stack); });
-AWS.config.update({ region: "ap-southeast-2" });
+
+const SESConfig = {
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    accessSecretKey: process.env.AWS_SECRET_KEY,
+    region: "ap-southeast-2"
+}
+
+AWS.config.update(SESConfig);
 
 const dynamodb = new AWS.DynamoDB();
 const dynamodbDocClient = new AWS.DynamoDB.DocumentClient();
@@ -150,7 +163,7 @@ setInterval(() => { // NOTE: adds a new set of data to dynamodb
 }, timeBetweenQueries);
 
 function redisCheck(key, callback) {
-    return client.get(key)
+    return asyncRedisClient.get(key)
         .then(res => {
             if (res) return JSON.parse(res);
             else return callback();
@@ -159,7 +172,7 @@ function redisCheck(key, callback) {
 }
 
 function redisAdd(key, secondsToExpire, data) {
-    client.setex(key, secondsToExpire, JSON.stringify(data)).then(succ => {
+    asyncRedisClient.setex(key, secondsToExpire, JSON.stringify(data)).then(succ => {
         if (succ) console.log('Successfully uploaded data to Redis at ' + key);
     }).catch(err => console.log(err));
 }

@@ -1,18 +1,9 @@
-import React, {useState, useContext} from "react";
+import React, {useContext} from "react";
 
 // reactstrap components
 import {
-  Collapse,
-  DropdownToggle,
-  DropdownMenu,
-  DropdownItem,
-  UncontrolledDropdown,
-  NavbarBrand,
   Navbar,
   Button,
-  UncontrolledButtonDropdown,
-  NavItem,
-  NavLink,
   Nav,
   Container,
   Row,
