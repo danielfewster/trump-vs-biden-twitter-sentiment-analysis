@@ -15,13 +15,13 @@ AWS.config.update({
     region: "ap-southeast-2"
 });
 
-/*
+
 AWS.config.update({
     accessKeyId: process.env.AWS_ACCESS_KEY,
     accessSecretKey: process.env.AWS_SECRET_KEY,
     region: "ap-southeast-2"
 });
-*/
+
 
 const dynamodb = new AWS.DynamoDB();
 const dynamodbDocClient = new AWS.DynamoDB.DocumentClient();
@@ -31,17 +31,15 @@ const twitterQueriesToTrack = ["Trump", "Biden"];
 twitterQueriesToTrack.forEach(query => dynamodbInfo[query] = createDynamoDB(query));
 
 const apiURL = "https://api.twitter.com/2/tweets/search/recent";
-const timeBetweenQueries = 10000; // ms
+const timeBetweenQueries = 900000; // ms
+
 
 const asyncRedis = require("async-redis");
-const asyncRedisClient = asyncRedis.createClient();
-// NOTE: this should work as asyncRedis has everything redis does, just async over a wrapper, if not just changed back to decorate
-/*
 const asyncRedisClient = asyncRedis.createClient({
     host: "redis",
     port: 6379
 });
-*/
+
 asyncRedisClient.on("error", err => console.error(err));
 
 function createDynamoDB(candidate) {
