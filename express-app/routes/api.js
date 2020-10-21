@@ -189,6 +189,27 @@ function redisAdd(key, secondsToExpire, data) {
     }).catch(err => console.log(err));
 }
 
+function generateResponse(data) {
+    let tweets = [];
+    let graphInfoLables = [];
+    let graphInfoSentiment = [];
+    data.Items.forEach(object => {
+        let o = JSON.parse(object.info);
+        o.forEach(tweet => tweets.push(tweet))
+        let temp = addSentimentAndCompromiseToData(o);
+        graphInfoSentiment.push(temp.overallSentiment);
+        graphInfoLables.push(moment.unix(object.unixTimeOfQuery).format("ddd, h:mA"));
+    }  
+    )
+    let responseTweets = addSentimentAndCompromiseToData(tweets);
+    let graphInfo = {
+        graphInfoLables,
+        graphInfoSentiment
+    }
+    let resdata = {responseTweets, graphInfo};
+    return(resdata);
+}
+
 
 router.get('/api/overall-sentiment/:unix/:candidate', (req, res) => {
     dynamodbDocClient.scan({
@@ -199,32 +220,14 @@ router.get('/api/overall-sentiment/:unix/:candidate', (req, res) => {
             ":currTime": moment().unix()
         }
     }).promise()
-    .then(data =>
-        { 
-            let tweets = [];
-            let graphInfoLables = [];
-            let graphInfoSentiment = [];
-            data.Items.forEach(object => {
-                let o = JSON.parse(object.info);
-                o.forEach(tweet => tweets.push(tweet))
-                let temp = addSentimentAndCompromiseToData(o);
-                graphInfoSentiment.push(temp.overallSentiment);
-                graphInfoLables.push(moment.unix(object.unixTimeOfQuery).format("ddd, h:mA"));
-              }  
-            )
-            let responseTweets = addSentimentAndCompromiseToData(tweets);
-            let graphInfo = {
-                graphInfoLables,
-                graphInfoSentiment
-            }
-            let resJson = {responseTweets, graphInfo} ;
-            res.json(resJson)})
+    .then(data => generateResponse(data))
+    .then(data => res.json(data))
     .catch(err => res.json({ error: err }));
 });
 
-router.get('/api/day-sentiment/:day/:candidate', (req, res) => {
-    const timeToExpire = 60 * 60 * 24; // 10 mins
-    const redisKey = req.params.day + req.params.candidate;
+router.get('/api/redis-sentiment/:unix/:candidate', (req, res) => {
+    const timeToExpire = 60 * 6 * 10; // 60 mins
+    const redisKey = moment.unix(req.params.unix).format("H") + req.params.candidate;
 
     redisCheck(redisKey, () => {
         return dynamodbDocClient.scan({
@@ -234,30 +237,13 @@ router.get('/api/day-sentiment/:day/:candidate', (req, res) => {
                 ":day": moment(req.params.day).format("DD-MM-YYYY")
             }
         }).promise()
+        .then(data => generateResponse(data))
         .then(data => {
             redisAdd(redisKey, timeToExpire, data);
             return data;
         });
     })
-    .then(data =>   { 
-        let tweets = [];
-        let graphInfoLables = [];
-        let graphInfoSentiment = [];
-        data.Items.forEach(object => {
-            let o = JSON.parse(object.info);
-            o.forEach(tweet => tweets.push(tweet))
-            let temp = addSentimentAndCompromiseToData(o);
-            graphInfoSentiment.push(temp.overallSentiment);
-            graphInfoLables.push(moment.unix(object.unixTimeOfQuery).format("ddd, h:mA"));
-          }  
-        )
-        let responseTweets = addSentimentAndCompromiseToData(tweets);
-        let graphInfo = {
-            graphInfoLables,
-            graphInfoSentiment
-        }
-        let resJson = {responseTweets, graphInfo} ;
-        res.json(resJson)})
+    .then(data => res.json(data))
     .catch(err => res.json({ error: err }));
 });
 

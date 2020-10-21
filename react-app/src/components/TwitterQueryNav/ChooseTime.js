@@ -37,18 +37,32 @@ function ChooseTime() {
                     <DropdownItem
                         href="#pablo"
                         onClick={() => {
-                            setLabel("Today");
+                            setLabel("Latest");
                             value.dispatch({
                                 type: "Time",
                                 payload: {
                                     time: moment().subtract(1, 'hours').unix(),
-                                    latest: true
                                 }
                             })
 
                         }}
                     >
-                        Today
+                        Latest
+                    </DropdownItem>
+                    <DropdownItem
+                        href="#pablo"
+                        onClick={() => {
+                            setLabel("24 hours");
+                            value.dispatch({
+                                type: "Time",
+                                payload: {
+                                    time: moment().subtract(24, 'hours').unix(),
+                                }
+                            })
+
+                        }}
+                    >
+                        24 hours
                     </DropdownItem>
                     <DropdownItem
                         href="#pablo"
@@ -58,7 +72,6 @@ function ChooseTime() {
                                 type: "Time",
                                 payload: {
                                     time: moment().subtract(3, 'days').unix(),
-                                    latest: false
                                 }
                             })
                         } }
@@ -73,7 +86,6 @@ function ChooseTime() {
                                 type: "Time",
                                 payload: {
                                     time: moment().subtract(7, 'days').unix(),
-                                    latest: false
                                 }
                             })
 

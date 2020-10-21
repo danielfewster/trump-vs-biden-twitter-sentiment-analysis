@@ -78,8 +78,6 @@ function ShowSentiment (props) {
 }
 
 function TwitterHome() {
-
-  // const [tweetData, setTweetData] = useState();
   const [sentiment, setSentiment] = useState(0);
   const [topFivePositive, setTopFivePositive] = useState([]);
   const [topFiveNegative, setTopFiveNegative] = useState([]);
@@ -87,25 +85,26 @@ function TwitterHome() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [peopleTopics, setPeopleTopics] = useState([]);
   const [placesTopics, setPlacesTopics] = useState([]);
+  const [route, setRoute] = useState("overall");
+  const [error, setError] = useState();
 
   useEffect(() => {
     if(state.time !== null & state.candidate !== null) {
-      let request = "http://" + window.location.hostname+ ":3001/api/overall-sentiment/"
-      request = state.latest ?  request + moment().format("DD-MM-YYYY") + "/" : request + state.time + "/"
+      let request = `http://` + window.location.hostname+ `:3001/api/${route}-sentiment/${state.time}/${state.candidate}`
 
-      axios.get(request + state.candidate)
+      axios.get(request)
       .then((response) => {
-
-            console.log(response);
-
             setInfo(response.data.graphInfo);
             setPeopleTopics(response.data.responseTweets.occurencesOfTopics.people);
             setPlacesTopics(response.data.responseTweets.occurencesOfTopics.places);
             setSentiment(response.data.responseTweets.overallSentiment);
             setTopFiveNegative(response.data.responseTweets.sentimentRanked.topNeg);
             setTopFivePositive(response.data.responseTweets.sentimentRanked.topPos);
-  
-        
+            setLoading(false);
+      })
+      .catch((e) =>{
+        setError(e)
+        setLoading(false);
       })
     }
   }, [state.time, state.candidate]);
@@ -124,7 +123,31 @@ function TwitterHome() {
         <QueryNav />
         <div >
           <ChooseTime />
+          <Container>
+            <Row>
+                <Col>
+                <Button 
+                      className="btn-round" 
+                      color="info" 
+                      type="button"  
+                      size="lg"
+                      onClick={() => setRoute("redis")}>
+                          Add redis
+                </Button>
+                <Button 
+                      className="btn-round" 
+                      color="danger" 
+                      type="button"  
+                      size="lg"
+                      onClick={() => setRoute("overall")}>
+                          Remove redis
+                </Button>
+                </Col>
+              </Row>
+          </Container>
+
           <Container className="justify-content-center">
+           
             <Row>
               <Col>
                 {sentiment !== 0 ? <ShowSentiment sentiment={sentiment} state={state} />: <div/>}
