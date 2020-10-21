@@ -44,7 +44,7 @@ asyncRedisClient.on("error", err => console.error(err));
 
 function createDynamoDB(candidate) {
     const info = {
-        TableName: "TempTwitterData" + candidate, 
+        TableName: "TwitterData" + candidate, 
         HashDateKey: "dateOfQuery",
         RangeUnixKey: "unixTimeOfQuery", 
         GenerateKeys: function() {
