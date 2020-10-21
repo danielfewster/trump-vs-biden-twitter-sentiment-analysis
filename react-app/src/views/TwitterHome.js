@@ -5,6 +5,7 @@ import {
   Container,
   Row,
   Col,
+  Button
 } from "reactstrap";
 
 // core components
@@ -86,12 +87,13 @@ function TwitterHome() {
   const [peopleTopics, setPeopleTopics] = useState([]);
   const [placesTopics, setPlacesTopics] = useState([]);
   const [route, setRoute] = useState("overall");
+  const [loading, setLoading] =useState(true);
   const [error, setError] = useState();
 
   useEffect(() => {
     if(state.time !== null & state.candidate !== null) {
       let request = `http://` + window.location.hostname+ `:3001/api/${route}-sentiment/${state.time}/${state.candidate}`
-
+      setLoading(true);
       axios.get(request)
       .then((response) => {
             setInfo(response.data.graphInfo);
@@ -145,31 +147,30 @@ function TwitterHome() {
                 </Col>
               </Row>
           </Container>
-
-          <Container className="justify-content-center">
-           
-            <Row>
-              <Col>
-                {sentiment !== 0 ? <ShowSentiment sentiment={sentiment} state={state} />: <div/>}
-              </Col>
-            </Row>
-            <Row>
-            <Col className="text-center justify-content-center">
-              {sentiment !== 0 ?<GraphModal data={info} />: <div/>}
-              </Col >
-              <Col className="text-center justify-content-center">
-              {sentiment !== 0 ?<TopicsModal title="Places" data={placesTopics} />: <div/>}
-              </Col>
-              <Col className="text-center justify-content-center">
-              {sentiment !== 0 ?  <TopicsModal title="People" data={peopleTopics} />: <div/>}
-              </Col>
-            </Row>
-           
-      
-            <div className="separator separator-primary"></div>
-          </Container>
-        </div>
-        <div className="section section-contact-us text-center">
+          {!loading ?
+           <div>
+           <Container className="justify-content-center">
+             <Row>
+               <Col>
+                 {sentiment !== 0 ? <ShowSentiment sentiment={sentiment} state={state} />: <div/>}
+               </Col>
+             </Row>
+             <Row>
+             <Col className="text-center justify-content-center">
+               {sentiment !== 0 ?<GraphModal data={info} />: <div/>}
+               </Col >
+               <Col className="text-center justify-content-center">
+               {sentiment !== 0 ?<TopicsModal title="Places" data={placesTopics} />: <div/>}
+               </Col>
+               <Col className="text-center justify-content-center">
+               {sentiment !== 0 ?  <TopicsModal title="People" data={peopleTopics} />: <div/>}
+               </Col>
+             </Row>
+            
+       
+             <div className="separator separator-primary"></div>
+           </Container>
+           <div className="section section-contact-us text-center">
           <Container>
             <Row>
                 <Col className="text-center ml-auto mr-auto" lg="6" md="8">
@@ -196,6 +197,11 @@ function TwitterHome() {
             </Row>
           </Container>
         </div>
+             
+           </div>: 
+           <div>Loading</div> }
+        </div>
+       
         <DefaultFooter />
       </div>
     </queryContext.Provider>

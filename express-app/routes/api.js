@@ -227,7 +227,7 @@ router.get('/api/overall-sentiment/:unix/:candidate', (req, res) => {
 
 router.get('/api/redis-sentiment/:unix/:candidate', (req, res) => {
     const timeToExpire = 60 * 6 * 10; // 60 mins
-    const redisKey = moment.unix(req.params.unix).format("H") + req.params.candidate;
+    const redisKey = moment.unix(req.params.unix).format("ddd H") + req.params.candidate;
 
     redisCheck(redisKey, () => {
         return dynamodbDocClient.scan({
