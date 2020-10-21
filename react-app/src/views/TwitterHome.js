@@ -111,6 +111,9 @@ function TwitterHome() {
     }
   }, [state.time, state.candidate]);
 
+  // use switch statement to change value of redis button and only use 1 button
+  // adding loading icon from now ui and center it. 
+
   return (
     <>
     <queryContext.Provider
@@ -199,7 +202,12 @@ function TwitterHome() {
         </div>
              
            </div>: 
-           <div>Loading</div> }
+             <div className="modal-header justify-content-center">
+             <div className="modal-profile">
+               <i className="now-ui-icons loader_refresh"></i>
+               Loading
+             </div>
+           </div> }
         </div>
        
         <DefaultFooter />
