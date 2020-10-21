@@ -178,16 +178,28 @@ function redisAdd(key, secondsToExpire, data) {
 }
 
 router.get('/api/overall-sentiment/:unix/:candidate', (req, res) => {
-    const timeToExpire = 60 * 10; // 10 mins
-    const redisKey = req.params.unix + req.params.candidate;
+    dynamodbDocClient.scan({
+        TableName : dynamodbInfo[req.params.candidate].TableName,
+        FilterExpression: `${dynamodbInfo[req.params.candidate].RangeUnixKey} between :lastTime and :currTime`,
+        ExpressionAttributeValues: {
+            ":lastTime": moment.unix(req.params.unix).unix(),
+            ":currTime": moment().unix()
+        }
+    }).promise()
+    .then(data => res.json(data))
+    .catch(err => res.json({ error: err }));
+});
+
+router.get('/api/overall-sentiment/:day/:candidate', (req, res) => {
+    const timeToExpire = 60 * 60 * 24; // 10 mins
+    const redisKey = req.params.day + req.params.candidate;
 
     redisCheck(redisKey, () => {
         return dynamodbDocClient.scan({
             TableName : dynamodbInfo[req.params.candidate].TableName,
-            FilterExpression: `${dynamodbInfo[req.params.candidate].RangeUnixKey} between :lastTime and :currTime`,
+            FilterExpression: `${dynamodbInfo[req.params.candidate].HashDateKey} = :day`,
             ExpressionAttributeValues: {
-                ":lastTime": moment.unix(req.params.unix).unix(),
-                ":currTime": moment().unix()
+                ":day": moment(req.params.day).format("DD-MM-YYYY")
             }
         }).promise()
         .then(data => {
@@ -196,7 +208,7 @@ router.get('/api/overall-sentiment/:unix/:candidate', (req, res) => {
         });
     })
     .then(data => res.json(data))
-    .catch(err => res.json({ error: err })); 
+    .catch(err => res.json({ error: err }));
 });
 
 module.exports = router;
