@@ -23,6 +23,7 @@ const moment = require('moment');
 const initialState = {
   time: moment().subtract(7, 'days').unix(),
   candidate: "Biden",
+  latest: false
 };
 const reducer = (state, action) => {
   switch (action.type) {
@@ -69,7 +70,6 @@ function ShowSentiment (props) {
         <Row>
         <Col className="ml-auto mr-auto text-center" md="8">
           <div> {props.sentiment !== null ? <h4>Sentiment for  {props.state.candidate + " is " +Math.round(props.sentiment)}%</h4> : <div></div>}
-            
           </div>
         </Col>
       </Row>
@@ -90,75 +90,20 @@ function TwitterHome() {
 
   useEffect(() => {
     if(state.time !== null & state.candidate !== null) {
-      let request = "http://" + window.location.hostname+ ":3001/api/overall-sentiment/" + state.time +"/" + state.candidate;
-      axios.get(request)
+      let request = "http://" + window.location.hostname+ ":3001/api/overall-sentiment/"
+      request = state.latest ?  request + moment().format("DD-MM-YYYY") + "/" : request + state.time + "/"
+
+      axios.get(request + state.candidate)
       .then((response) => {
+
             console.log(response);
-            let overallTopPos = [];
-            let overallTopNeg = [];
-            let oSentiment = 0;
-            let tempTopics = {
-                places: [],
-                people: [],
-            };
-            let graphInfoSentiment = [];
-            let graphInfoLables = [];
-            let graphInfo = {};
 
-            response.data.Items.forEach(object => {
-                    let o = JSON.parse(object.info);
-                    o.sentimentRanked.topPos.forEach(e => overallTopPos.push(e));
-                    o.sentimentRanked.topNeg.forEach(e => overallTopNeg.push(e));
-                    oSentiment += o.overallSentiment;
-                    tempTopics.places.push(o.occurencesOfTopics.places);
-                    tempTopics.people.push(o.occurencesOfTopics.people);
-                    graphInfoSentiment.push(o.overallSentiment);
-                    graphInfoLables.push(moment.unix(object.unixTimeOfQuery).format("ddd, h:mA"));
-                  }  
-            )
-            console.log(graphInfoLables);
-                
-            graphInfo = {
-              graphInfoLables,
-              graphInfoSentiment
-            }
-      
-
-            const countTopics = data => {
-                let result = {}; //(1)
-              
-                data.forEach(topic => { //(2)
-                  for (let [key, value] of Object.entries(topic)) { //(3)
-                    if (result[key]) { //(4)
-                      result[key] += value; //(5)
-                    } else { //(6)
-                      result[key] = value;
-                    }
-                   }
-            
-                });
-                return result; //(7)
-            };
-              
-            const people =  Object.entries(countTopics(tempTopics.people)).sort((a, b) =>b[1] - a[1]).slice(0, 5);
-            const places =  Object.entries(countTopics(tempTopics.places)).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-            let uniqPos = overallTopPos.filter((thing, index, self) =>
-                index === self.findIndex((t) => (
-                t.id === thing.id || t.text === thing.text
-                ))
-            )
-            let uniqNeg = overallTopNeg.filter((thing, index, self) =>
-                index === self.findIndex((t) => (
-                t.id === thing.id || t.text === thing.text
-                ))
-            )
-            setInfo(graphInfo);
-            setPeopleTopics(people);
-            setPlacesTopics(places);
-            setSentiment(oSentiment / response.data.Items.length)
-            setTopFiveNegative(uniqNeg.sort((a, b) => b.sentiment - a.sentiment).slice(0).slice(-5).reverse())
-            setTopFivePositive(uniqPos.sort((a, b) => b.sentiment - a.sentiment).slice(0, 5))
+            setInfo(response.data.graphInfo);
+            setPeopleTopics(response.data.responseTweets.occurencesOfTopics.people);
+            setPlacesTopics(response.data.responseTweets.occurencesOfTopics.places);
+            setSentiment(response.data.responseTweets.overallSentiment);
+            setTopFiveNegative(response.data.responseTweets.sentimentRanked.topNeg);
+            setTopFivePositive(response.data.responseTweets.sentimentRanked.topPos);
   
         
       })

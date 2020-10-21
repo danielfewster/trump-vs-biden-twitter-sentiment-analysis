@@ -31,12 +31,11 @@ const twitterQueriesToTrack = ["Trump", "Biden"];
 twitterQueriesToTrack.forEach(query => dynamodbInfo[query] = createDynamoDB(query));
 
 const apiURL = "https://api.twitter.com/2/tweets/search/recent";
-const timeBetweenQueries = 900000; // ms
+const timeBetweenQueries = 90000; // ms
 
 
 const asyncRedis = require("async-redis");
 const asyncRedisClient = asyncRedis.createClient({
-    host: "redis",
     port: 6379
 });
 
@@ -44,7 +43,7 @@ asyncRedisClient.on("error", err => console.error(err));
 
 function createDynamoDB(candidate) {
     const info = {
-        TableName: "TempTwitterData" + candidate, 
+        TableName: "Temp" + candidate, 
         HashDateKey: "dateOfQuery",
         RangeUnixKey: "unixTimeOfQuery", 
         GenerateKeys: function() {
@@ -122,11 +121,18 @@ function addSentimentAndCompromiseToData(twitterData) {
             sentiment: sentiment
         });
     });
+
+    let filteredTweets = tweetsWithSentiment.filter((thing, index, self) =>
+        index === self.findIndex((t) => (
+            t.id === thing.id || t.text === thing.text
+        ))
+    )
     
-    tweetsWithSentiment.sort((a, b) => b.sentiment - a.sentiment);
+    filteredTweets.sort((a, b) => b.sentiment - a.sentiment);
+
     const sentimentRanked = {
-        topPos: tweetsWithSentiment.slice(0, 5),
-        topNeg: tweetsWithSentiment.slice(-5)
+        topPos: filteredTweets.slice(0, 5),
+        topNeg: filteredTweets.slice(-5)
     };
 
     [...sentimentRanked.topPos, ...sentimentRanked.topNeg].forEach(tweet => {
@@ -140,17 +146,23 @@ function addSentimentAndCompromiseToData(twitterData) {
             : occurencesOfTopics[topicType][topic] = countOccurences(topicTypeOnTweets, topic));        
     }
 
+    let people = Object.entries(occurencesOfTopics.people).sort((a, b) =>b[1] - a[1]).slice(0, 5);
+    let places = Object.entries(occurencesOfTopics.places).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
     return {
         sentimentRanked: sentimentRanked,
         overallSentiment: analyzer.getSentiment(wordsFromTweets) * 100,
-        occurencesOfTopics: occurencesOfTopics
+        occurencesOfTopics: {
+            people: people, 
+            places: places
+        }
     }
 }
 
 function pushTwitterData(candidate) {
     return axios.get(apiURL, dynamodbInfo[candidate].axiosOptions)
         .then(searchRes => {
-            const resultJSON = JSON.stringify(addSentimentAndCompromiseToData(searchRes.data.data)); // NOTE: might need to be async, sequential should be fine here though)
+            const resultJSON = JSON.stringify(searchRes.data.data); // NOTE: might need to be async, sequential should be fine here though)
             dynamodbDocClient.put(dynamodbInfo[candidate].GenerateKeysWithInfo(resultJSON)).promise().then(() => {
                 console.log(`Successfully uploaded data to DynamoDB at ${dynamodbInfo[candidate].TableName}`);
             }).catch(err => console.error(err));
@@ -177,6 +189,7 @@ function redisAdd(key, secondsToExpire, data) {
     }).catch(err => console.log(err));
 }
 
+
 router.get('/api/overall-sentiment/:unix/:candidate', (req, res) => {
     dynamodbDocClient.scan({
         TableName : dynamodbInfo[req.params.candidate].TableName,
@@ -186,11 +199,30 @@ router.get('/api/overall-sentiment/:unix/:candidate', (req, res) => {
             ":currTime": moment().unix()
         }
     }).promise()
-    .then(data => res.json(data))
+    .then(data =>
+        { 
+            let tweets = [];
+            let graphInfoLables = [];
+            let graphInfoSentiment = [];
+            data.Items.forEach(object => {
+                let o = JSON.parse(object.info);
+                o.forEach(tweet => tweets.push(tweet))
+                let temp = addSentimentAndCompromiseToData(o);
+                graphInfoSentiment.push(temp.overallSentiment);
+                graphInfoLables.push(moment.unix(object.unixTimeOfQuery).format("ddd, h:mA"));
+              }  
+            )
+            let responseTweets = addSentimentAndCompromiseToData(tweets);
+            let graphInfo = {
+                graphInfoLables,
+                graphInfoSentiment
+            }
+            let resJson = {responseTweets, graphInfo} ;
+            res.json(resJson)})
     .catch(err => res.json({ error: err }));
 });
 
-router.get('/api/overall-sentiment/:day/:candidate', (req, res) => {
+router.get('/api/day-sentiment/:day/:candidate', (req, res) => {
     const timeToExpire = 60 * 60 * 24; // 10 mins
     const redisKey = req.params.day + req.params.candidate;
 
@@ -207,7 +239,25 @@ router.get('/api/overall-sentiment/:day/:candidate', (req, res) => {
             return data;
         });
     })
-    .then(data => res.json(data))
+    .then(data =>   { 
+        let tweets = [];
+        let graphInfoLables = [];
+        let graphInfoSentiment = [];
+        data.Items.forEach(object => {
+            let o = JSON.parse(object.info);
+            o.forEach(tweet => tweets.push(tweet))
+            let temp = addSentimentAndCompromiseToData(o);
+            graphInfoSentiment.push(temp.overallSentiment);
+            graphInfoLables.push(moment.unix(object.unixTimeOfQuery).format("ddd, h:mA"));
+          }  
+        )
+        let responseTweets = addSentimentAndCompromiseToData(tweets);
+        let graphInfo = {
+            graphInfoLables,
+            graphInfoSentiment
+        }
+        let resJson = {responseTweets, graphInfo} ;
+        res.json(resJson)})
     .catch(err => res.json({ error: err }));
 });
 

@@ -1,4 +1,4 @@
-import React, { useContext} from "react";
+import React, { useContext, useState } from "react";
 
 // reactstrap components
 import {
@@ -17,6 +17,8 @@ const moment = require('moment');
 
 function ChooseTime() {
     const value = useContext(queryContext);
+    const [label, setLabel] = useState('Today')
+    
     return (
       <>
         <Container>
@@ -29,50 +31,53 @@ function ChooseTime() {
                     caret
                     color="warning"
                     >
-                    Time
+                    {label}
                     </DropdownToggle>
                     <DropdownMenu>
                     <DropdownItem
                         href="#pablo"
-                        onClick={() => value.dispatch({
-                            type: "Time",
-                            payload: {
-                                time: moment().subtract(1, 'hours').unix()
-                            }
-                        })}
+                        onClick={() => {
+                            setLabel("Today");
+                            value.dispatch({
+                                type: "Time",
+                                payload: {
+                                    time: moment().subtract(1, 'hours').unix(),
+                                    latest: true
+                                }
+                            })
+
+                        }}
                     >
-                        Latest Data
+                        Today
                     </DropdownItem>
                     <DropdownItem
                         href="#pablo"
-                        onClick={() => value.dispatch({
-                        type: "Time",
-                        payload: {
-                            time: moment().subtract(24, 'hours').unix()
-                        }
-                    })}
-                    >
-                        24 hours
-                    </DropdownItem>
-                    <DropdownItem
-                        href="#pablo"
-                        onClick={() => value.dispatch({
-                        type: "Time",
-                        payload: {
-                            time: moment().subtract(3, 'days').unix()
-                        }
-                    })}
+                        onClick={() => {
+                            setLabel("3 days")
+                            value.dispatch({
+                                type: "Time",
+                                payload: {
+                                    time: moment().subtract(3, 'days').unix(),
+                                    latest: false
+                                }
+                            })
+                        } }
                     >
                         3 days
                     </DropdownItem>
                     <DropdownItem
                         href="#pablo"
-                        onClick={() => value.dispatch({
-                        type: "Time",
-                        payload: {
-                            time: moment().subtract(7, 'days').unix()
-                        }
-                    })}
+                        onClick={() => {
+                            setLabel("7 days")
+                            value.dispatch({
+                                type: "Time",
+                                payload: {
+                                    time: moment().subtract(7, 'days').unix(),
+                                    latest: false
+                                }
+                            })
+
+                        } }
                     >
                         7 days
                     </DropdownItem>
