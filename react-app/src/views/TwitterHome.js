@@ -21,9 +21,8 @@ import TopicsModal from "components/TwitterModal/TopicsModal.js"
 export const queryContext = createContext();
 const moment = require('moment');
 const initialState = {
-  time: null,
-  candidate: null,
-  latest: false
+  time: moment().subtract(7, 'days').unix(),
+  candidate: "Biden",
 };
 const reducer = (state, action) => {
   switch (action.type) {
@@ -50,10 +49,10 @@ const reducer = (state, action) => {
 
 function ShowSentiment (props) {
   let img = require("assets/img/neutral-smile.png")
-  if(Math.sign(props.sentiment) === -1) {
-    img = require("assets/img/sad-smile.png");
-  } else if(Math.sign(props.sentiment) === 1) {
-    img = require("assets/img/happy-smile.png");
+  if(props.state.candidate === "Biden") {
+    img = require("assets/img/biden.jpg");
+  } else if(props.state.candidate === "Trump") {
+    img = require("assets/img/trump.jpg");
   }
     return(
     <div>
@@ -62,13 +61,14 @@ function ShowSentiment (props) {
           <img
             alt="..."
             className="rounded-circle"
+
             src={img}
           ></img>
         </Col>
         </Row>
         <Row>
         <Col className="ml-auto mr-auto text-center" md="8">
-          <div> {props.sentiment !== null ? <h4>The current sentiment analysis indicates a {Math.round(props.sentiment)}%</h4> : <div></div>}
+          <div> {props.sentiment !== null ? <h4>Sentiment for  {props.state.candidate + " is " +Math.round(props.sentiment)}%</h4> : <div></div>}
             
           </div>
         </Col>
@@ -93,7 +93,7 @@ function TwitterHome() {
       let request = "http://" + window.location.hostname+ ":3001/api/overall-sentiment/" + state.time +"/" + state.candidate;
       axios.get(request)
       .then((response) => {
-
+            console.log(response);
             let overallTopPos = [];
             let overallTopNeg = [];
             let oSentiment = 0;
@@ -113,9 +113,10 @@ function TwitterHome() {
                     tempTopics.places.push(o.occurencesOfTopics.places);
                     tempTopics.people.push(o.occurencesOfTopics.people);
                     graphInfoSentiment.push(o.overallSentiment);
-                    graphInfoLables.push(moment(object.unixTimeOfQuery).format("ddd, h:mA"));
+                    graphInfoLables.push(moment.unix(object.unixTimeOfQuery).format("ddd, h:mA"));
                   }  
             )
+            console.log(graphInfoLables);
                 
             graphInfo = {
               graphInfoLables,
@@ -178,20 +179,20 @@ function TwitterHome() {
         <QueryNav />
         <div >
           <ChooseTime />
-          <Container>
+          <Container className="justify-content-center">
             <Row>
               <Col>
-                {sentiment !== 0 ? <ShowSentiment sentiment={sentiment} />: <div/>}
+                {sentiment !== 0 ? <ShowSentiment sentiment={sentiment} state={state} />: <div/>}
               </Col>
             </Row>
             <Row>
-            <Col>
+            <Col className="text-center justify-content-center">
               {sentiment !== 0 ?<GraphModal data={info} />: <div/>}
-              </Col>
-              <Col>
+              </Col >
+              <Col className="text-center justify-content-center">
               {sentiment !== 0 ?<TopicsModal title="Places" data={placesTopics} />: <div/>}
               </Col>
-              <Col>
+              <Col className="text-center justify-content-center">
               {sentiment !== 0 ?  <TopicsModal title="People" data={peopleTopics} />: <div/>}
               </Col>
             </Row>

@@ -14,6 +14,13 @@ import {
 
 function TopicsModal(props) {
   const [modal1, setModal1] = React.useState(false);
+  let icon = null;
+  if(props.title === "Places") {
+    icon = "now-ui-icons design_image"
+  } else if (props.title === "People") {
+    icon = "now-ui-icons users_circle-08"
+  }
+
   return (
     <>
       <div className="section section-javascript" id="javascriptComponents">
@@ -35,7 +42,7 @@ function TopicsModal(props) {
               >
                 <div className="modal-header justify-content-center">
                   <div className="modal-profile">
-                    <i className="now-ui-icons users_circle-08"></i>
+                    <i className={icon}></i>
                   </div>
                 </div>
                 <ModalBody>

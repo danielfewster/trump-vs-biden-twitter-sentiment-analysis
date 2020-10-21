@@ -34,10 +34,7 @@ function QueryNav() {
                              payload: "Biden"
                          })}>
                             Biden
-                        </Button>
-                     
-                        -----------
-                      
+                        </Button>              
                         <Button 
                         className="btn-round" 
                         color="danger" 

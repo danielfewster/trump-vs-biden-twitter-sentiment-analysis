@@ -53,7 +53,7 @@ function GraphModal(props) {
               >
               Graph
               </Button>
-              <Modal isOpen={modal1} toggle={() => setModal1(false)}>
+              <Modal isOpen={modal1} toggle={() => setModal1(false)} size="lg">
                 <div className="modal-header justify-content-center">
                   <button
                     className="close"
@@ -62,7 +62,7 @@ function GraphModal(props) {
                   >
                     <i className="now-ui-icons ui-1_simple-remove"></i>
                   </button>
-                  <h4 className="title title-up">Click Price Indicator</h4>
+                  <h4 className="title title-up">Over Time Sentiment</h4>
                 </div>
                 <ModalBody>
                   <LineGraph data={props.data} />
