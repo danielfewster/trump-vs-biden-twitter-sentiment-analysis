@@ -31,7 +31,7 @@ const twitterQueriesToTrack = ["Trump", "Biden"];
 twitterQueriesToTrack.forEach(query => dynamodbInfo[query] = createDynamoDB(query));
 
 const apiURL = "https://api.twitter.com/2/tweets/search/recent";
-const timeBetweenQueries = 90000; // ms
+const timeBetweenQueries = 900000; // ms
 
 
 const asyncRedis = require("async-redis");
@@ -132,7 +132,7 @@ function addSentimentAndCompromiseToData(twitterData) {
 
     const sentimentRanked = {
         topPos: filteredTweets.slice(0, 5),
-        topNeg: filteredTweets.slice(-5)
+        topNeg: filteredTweets.slice(-5).reverse()
     };
 
     [...sentimentRanked.topPos, ...sentimentRanked.topNeg].forEach(tweet => {
@@ -211,7 +211,7 @@ function generateResponse(data) {
 }
 
 
-router.get('/api/overall-sentiment/:unix/:candidate', (req, res) => {
+router.get('/api/no-redis-sentiment/:unix/:candidate', (req, res) => {
     dynamodbDocClient.scan({
         TableName : dynamodbInfo[req.params.candidate].TableName,
         FilterExpression: `${dynamodbInfo[req.params.candidate].RangeUnixKey} between :lastTime and :currTime`,
@@ -227,14 +227,15 @@ router.get('/api/overall-sentiment/:unix/:candidate', (req, res) => {
 
 router.get('/api/redis-sentiment/:unix/:candidate', (req, res) => {
     const timeToExpire = 60 * 6 * 10; // 60 mins
-    const redisKey = moment.unix(req.params.unix).format("ddd H") + req.params.candidate;
+    const redisKey = moment.unix(req.params.unix).format("dddH") + req.params.candidate;
 
     redisCheck(redisKey, () => {
-        return dynamodbDocClient.scan({
+        dynamodbDocClient.scan({
             TableName : dynamodbInfo[req.params.candidate].TableName,
-            FilterExpression: `${dynamodbInfo[req.params.candidate].HashDateKey} = :day`,
+            FilterExpression: `${dynamodbInfo[req.params.candidate].RangeUnixKey} between :lastTime and :currTime`,
             ExpressionAttributeValues: {
-                ":day": moment(req.params.day).format("DD-MM-YYYY")
+                ":lastTime": moment.unix(req.params.unix).unix(),
+                ":currTime": moment().unix()
             }
         }).promise()
         .then(data => generateResponse(data))

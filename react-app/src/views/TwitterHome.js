@@ -14,7 +14,6 @@ import DefaultFooter from "components/Footers/DefaultFooter.js";
 import TwitterNavbar from "components/Navbars/TwitterNavBar.js"
 import TwitterCards from "components/TwitterCards";
 import QueryNav from "components/TwitterQueryNav/QueryNav.js"
-import ChooseTime from "components/TwitterQueryNav/ChooseTime.js"
 
 import GraphModal from "components/TwitterModal/GraphModal.js";
 import TopicsModal from "components/TwitterModal/TopicsModal.js"
@@ -24,30 +23,31 @@ const moment = require('moment');
 const initialState = {
   time: moment().subtract(7, 'days').unix(),
   candidate: "Biden",
-  latest: false
+  latest: false,
+  redis: "no-redis"
 };
 const reducer = (state, action) => {
   switch (action.type) {
-    case "Biden":
+    case "Candidate":
       return {
         ...state,
         candidate: action.payload,
       };
-    case "Trump":
-      return {
-        ...state,
-        candidate: action.payload,
-       
-      }
     case "Time":
       return{
         ...state,
         time: action.payload.time
+      };
+    case "Redis":
+      return{
+        ...state,
+        redis: action.payload.redis
       }
     default:
       return state;
   }
 };
+
 
 function ShowSentiment (props) {
   let img = require("assets/img/neutral-smile.png")
@@ -86,14 +86,17 @@ function TwitterHome() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [peopleTopics, setPeopleTopics] = useState([]);
   const [placesTopics, setPlacesTopics] = useState([]);
-  const [route, setRoute] = useState("overall");
   const [loading, setLoading] =useState(true);
   const [error, setError] = useState();
 
+  let redis = state.redis;
   useEffect(() => {
     if(state.time !== null & state.candidate !== null) {
-      let request = `http://` + window.location.hostname+ `:3001/api/${route}-sentiment/${state.time}/${state.candidate}`
+      
+      console.log(redis)
+      let request = `http://` + window.location.hostname+ `:3001/api/${state.redis}-sentiment/${state.time}/${state.candidate}`
       setLoading(true);
+
       axios.get(request)
       .then((response) => {
             setInfo(response.data.graphInfo);
@@ -102,17 +105,17 @@ function TwitterHome() {
             setSentiment(response.data.responseTweets.overallSentiment);
             setTopFiveNegative(response.data.responseTweets.sentimentRanked.topNeg);
             setTopFivePositive(response.data.responseTweets.sentimentRanked.topPos);
-            setLoading(false);
       })
-      .catch((e) =>{
-        setError(e)
+      .then(response => {
         setLoading(false);
+        setError(false);
+      } )
+      .catch((e) =>{
+        setError("Error: something went wrong, please try again shortly")
       })
     }
-  }, [state.time, state.candidate]);
+  }, [state.time, state.candidate, state.redis]);
 
-  // use switch statement to change value of redis button and only use 1 button
-  // adding loading icon from now ui and center it. 
 
   return (
     <>
@@ -126,89 +129,74 @@ function TwitterHome() {
       <div className="wrapper">
         <LandingPageHeader />
         <QueryNav />
-        <div >
-          <ChooseTime />
-          <Container>
-            <Row>
+        <div>
+          {!error ? 
+           <div >
+           {!loading ?
+            <div>
+            <Container className="justify-content-center">
+              <Row>
                 <Col>
-                <Button 
-                      className="btn-round" 
-                      color="info" 
-                      type="button"  
-                      size="lg"
-                      onClick={() => setRoute("redis")}>
-                          Add redis
-                </Button>
-                <Button 
-                      className="btn-round" 
-                      color="danger" 
-                      type="button"  
-                      size="lg"
-                      onClick={() => setRoute("overall")}>
-                          Remove redis
-                </Button>
+                 <ShowSentiment sentiment={sentiment} state={state} />
                 </Col>
               </Row>
-          </Container>
-          {!loading ?
-           <div>
-           <Container className="justify-content-center">
-             <Row>
-               <Col>
-                 {sentiment !== 0 ? <ShowSentiment sentiment={sentiment} state={state} />: <div/>}
-               </Col>
-             </Row>
-             <Row>
-             <Col className="text-center justify-content-center">
-               {sentiment !== 0 ?<GraphModal data={info} />: <div/>}
-               </Col >
-               <Col className="text-center justify-content-center">
-               {sentiment !== 0 ?<TopicsModal title="Places" data={placesTopics} />: <div/>}
-               </Col>
-               <Col className="text-center justify-content-center">
-               {sentiment !== 0 ?  <TopicsModal title="People" data={peopleTopics} />: <div/>}
-               </Col>
-             </Row>
-            
-       
-             <div className="separator separator-primary"></div>
-           </Container>
-           <div className="section section-contact-us text-center">
-          <Container>
-            <Row>
-                <Col className="text-center ml-auto mr-auto" lg="6" md="8">
-                {topFivePositive.length ? 
-                <div>
-                  <p className="description">Top 5 positive tweets</p>
-                  {topFivePositive.map(function(d, index){
-                    return (<TwitterCards key={index} text={d.text} sentiment={d.sentiment} />)
-                  })}
-                   
-                </div>
-                : <div></div> 
-                }
-                </Col> 
-              <Col>
-              {topFiveNegative.length ? <div>
-                <p className="description">Top 5 negative tweets</p>
-                  {topFiveNegative.map(function(d, index){
-                    return (<TwitterCards key={index} text={d.text} sentiment={d.sentiment} />)
-                  })}
-                </div> : <div></div>
-              } 
-              </Col>  
-            </Row>
-          </Container>
-        </div>
+              <Row>
+              <Col className="text-center justify-content-center">
+                <GraphModal data={info} />
+                </Col >
+                <Col className="text-center justify-content-center">
+                <TopicsModal title="Places" data={placesTopics} />
+                </Col>
+                <Col className="text-center justify-content-center">
+                <TopicsModal title="People" data={peopleTopics} />
+                </Col>
+              </Row>
              
-           </div>: 
-             <div className="modal-header justify-content-center">
-             <div className="modal-profile">
-               <i className="now-ui-icons loader_refresh"></i>
-               Loading
-             </div>
-           </div> }
+        
+              <div className="separator separator-primary"></div>
+            </Container>
+            <div className="section section-contact-us text-center">
+           <Container>
+             <Row>
+                 <Col className="text-center ml-auto mr-auto" lg="6" md="8">
+                 {topFivePositive.length ? 
+                 <div>
+                   <p className="description">Top 5 positive tweets</p>
+                   {topFivePositive.map(function(d, index){
+                     return (<TwitterCards key={index} text={d.text} sentiment={d.sentiment} />)
+                   })}
+                    
+                 </div>
+                 : <div></div> 
+                 }
+                 </Col> 
+               <Col>
+               {topFiveNegative.length ? <div>
+                 <p className="description">Top 5 negative tweets</p>
+                   {topFiveNegative.map(function(d, index){
+                     return (<TwitterCards key={index} text={d.text} sentiment={d.sentiment} />)
+                   })}
+                 </div> : <div></div>
+               } 
+               </Col>  
+             </Row>
+           </Container>
+         </div>
+              
+            </div>: 
+              <div className="modal-header justify-content-center">
+              <div className="modal-profile">
+                <i className="now-ui-icons loader_refresh"></i>
+                Loading
+              </div>
+            </div> }
+         </div> : 
+         <div className="modal-header justify-content-center">Error: Something went wrong please try again shortly.</div>
+        }
+       
+
         </div>
+       
        
         <DefaultFooter />
       </div>
