@@ -3,7 +3,6 @@ import React, {useContext, useState} from "react";
 // reactstrap components
 import {
   Navbar,
-  Button,
   Nav,
   Container,
   Row,
@@ -17,11 +16,9 @@ import { queryContext } from "views/TwitterHome.js";
 // core components
 const moment = require('moment');
 function QueryNav() {
-
     const value = useContext(queryContext);
     const [label, setLabel] = useState('7 days');
     const [candidate, setCandidate] = useState('Biden');
-    const [redisColor, setRedisColor] = useState("danger");
     const [redis, setRedis] = useState("Redis off");
 
     return (

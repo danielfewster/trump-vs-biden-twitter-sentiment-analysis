@@ -36,6 +36,7 @@ const timeBetweenQueries = 900000; // ms
 
 const asyncRedis = require("async-redis");
 const asyncRedisClient = asyncRedis.createClient({
+    host: "redis",
     port: 6379
 });
 
@@ -43,7 +44,7 @@ asyncRedisClient.on("error", err => console.error(err));
 
 function createDynamoDB(candidate) {
     const info = {
-        TableName: "Temp" + candidate, 
+        TableName: "Trump" + candidate, 
         HashDateKey: "dateOfQuery",
         RangeUnixKey: "unixTimeOfQuery", 
         GenerateKeys: function() {
@@ -191,28 +192,18 @@ function redisAdd(key, secondsToExpire, data) {
 
 function generateResponse(data) {
     let tweets = [];
-    let graphInfoLables = [];
-    let graphInfoSentiment = [];
     data.Items.forEach(object => {
         let o = JSON.parse(object.info);
         o.forEach(tweet => tweets.push(tweet))
-        let temp = addSentimentAndCompromiseToData(o);
-        graphInfoSentiment.push(temp.overallSentiment);
-        graphInfoLables.push(moment.unix(object.unixTimeOfQuery).format("ddd, h:mA"));
-    }  
-    )
+    })
     let responseTweets = addSentimentAndCompromiseToData(tweets);
-    let graphInfo = {
-        graphInfoLables,
-        graphInfoSentiment
-    }
     let resdata = {responseTweets, graphInfo};
     return(resdata);
 }
 
 
 router.get('/api/no-redis-sentiment/:unix/:candidate', (req, res) => {
-    dynamodbDocClient.scan({
+    return dynamodbDocClient.scan({
         TableName : dynamodbInfo[req.params.candidate].TableName,
         FilterExpression: `${dynamodbInfo[req.params.candidate].RangeUnixKey} between :lastTime and :currTime`,
         ExpressionAttributeValues: {
@@ -230,7 +221,7 @@ router.get('/api/redis-sentiment/:unix/:candidate', (req, res) => {
     const redisKey = moment.unix(req.params.unix).format("dddH") + req.params.candidate;
 
     redisCheck(redisKey, () => {
-        dynamodbDocClient.scan({
+        return dynamodbDocClient.scan({
             TableName : dynamodbInfo[req.params.candidate].TableName,
             FilterExpression: `${dynamodbInfo[req.params.candidate].RangeUnixKey} between :lastTime and :currTime`,
             ExpressionAttributeValues: {

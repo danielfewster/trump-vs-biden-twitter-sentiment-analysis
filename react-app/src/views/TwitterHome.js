@@ -14,8 +14,6 @@ import DefaultFooter from "components/Footers/DefaultFooter.js";
 import TwitterNavbar from "components/Navbars/TwitterNavBar.js"
 import TwitterCards from "components/TwitterCards";
 import QueryNav from "components/TwitterQueryNav/QueryNav.js"
-
-import GraphModal from "components/TwitterModal/GraphModal.js";
 import TopicsModal from "components/TwitterModal/TopicsModal.js"
 
 export const queryContext = createContext();
@@ -82,36 +80,29 @@ function TwitterHome() {
   const [sentiment, setSentiment] = useState(0);
   const [topFivePositive, setTopFivePositive] = useState([]);
   const [topFiveNegative, setTopFiveNegative] = useState([]);
-  const [info, setInfo] = useState([])
   const [state, dispatch] = useReducer(reducer, initialState);
   const [peopleTopics, setPeopleTopics] = useState([]);
   const [placesTopics, setPlacesTopics] = useState([]);
   const [loading, setLoading] =useState(true);
   const [error, setError] = useState();
 
-  let redis = state.redis;
   useEffect(() => {
     if(state.time !== null & state.candidate !== null) {
-      
-      console.log(redis)
-      let request = `http://` + window.location.hostname+ `:3001/api/${state.redis}-sentiment/${state.time}/${state.candidate}`
-      setLoading(true);
 
+      let request = `http://` + window.location.hostname + `:3001/api/${state.redis}-sentiment/${state.time}/${state.candidate}`
+      setLoading(true);
+      setError(false);
       axios.get(request)
       .then((response) => {
-            setInfo(response.data.graphInfo);
             setPeopleTopics(response.data.responseTweets.occurencesOfTopics.people);
             setPlacesTopics(response.data.responseTweets.occurencesOfTopics.places);
             setSentiment(response.data.responseTweets.overallSentiment);
             setTopFiveNegative(response.data.responseTweets.sentimentRanked.topNeg);
             setTopFivePositive(response.data.responseTweets.sentimentRanked.topPos);
+            setLoading(false);
       })
-      .then(response => {
-        setLoading(false);
-        setError(false);
-      } )
       .catch((e) =>{
-        setError("Error: something went wrong, please try again shortly")
+        console.log(e);
       })
     }
   }, [state.time, state.candidate, state.redis]);
@@ -141,9 +132,6 @@ function TwitterHome() {
                 </Col>
               </Row>
               <Row>
-              <Col className="text-center justify-content-center">
-                <GraphModal data={info} />
-                </Col >
                 <Col className="text-center justify-content-center">
                 <TopicsModal title="Places" data={placesTopics} />
                 </Col>
@@ -151,8 +139,6 @@ function TwitterHome() {
                 <TopicsModal title="People" data={peopleTopics} />
                 </Col>
               </Row>
-             
-        
               <div className="separator separator-primary"></div>
             </Container>
             <div className="section section-contact-us text-center">
