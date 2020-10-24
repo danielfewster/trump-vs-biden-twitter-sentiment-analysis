@@ -12,16 +12,10 @@ const analyzer = new Analyzer("English", stemmer, "afinn");
 
 const AWS = require('aws-sdk');
 AWS.config.update({
-    region: "ap-southeast-2"
-});
-
-
-AWS.config.update({
     accessKeyId: process.env.AWS_ACCESS_KEY,
     accessSecretKey: process.env.AWS_SECRET_KEY,
     region: "ap-southeast-2"
 });
-
 
 const dynamodb = new AWS.DynamoDB();
 const dynamodbDocClient = new AWS.DynamoDB.DocumentClient();
@@ -33,13 +27,8 @@ twitterQueriesToTrack.forEach(query => dynamodbInfo[query] = createDynamoDB(quer
 const apiURL = "https://api.twitter.com/2/tweets/search/recent";
 const timeBetweenQueries = 900000; // ms
 
-
 const asyncRedis = require("async-redis");
-const asyncRedisClient = asyncRedis.createClient({
-    host: "redis",
-    port: 6379
-});
-
+const asyncRedisClient = asyncRedis.createClient({ host: "redis", port: 6379 });
 asyncRedisClient.on("error", err => console.error(err));
 
 function createDynamoDB(candidate) {
@@ -103,7 +92,7 @@ function addSentimentAndCompromiseToData(twitterData) {
         people: [],
     };
     
-    let occurencesOfTopics = { // NOTE: I wish .topics() came organised -.- 
+    let occurencesOfTopics = {
         places: {},
         people: {},
     };
@@ -124,10 +113,8 @@ function addSentimentAndCompromiseToData(twitterData) {
     });
 
     let filteredTweets = tweetsWithSentiment.filter((thing, index, self) =>
-        index === self.findIndex((t) => (
-            t.id === thing.id || t.text === thing.text
-        ))
-    )
+        index === self.findIndex(t => t.id === thing.id || t.text === thing.text)
+    );
     
     filteredTweets.sort((a, b) => b.sentiment - a.sentiment);
 
@@ -147,23 +134,20 @@ function addSentimentAndCompromiseToData(twitterData) {
             : occurencesOfTopics[topicType][topic] = countOccurences(topicTypeOnTweets, topic));        
     }
 
-    let people = Object.entries(occurencesOfTopics.people).sort((a, b) =>b[1] - a[1]).slice(0, 5);
-    let places = Object.entries(occurencesOfTopics.places).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
     return {
         sentimentRanked: sentimentRanked,
         overallSentiment: analyzer.getSentiment(wordsFromTweets) * 100,
         occurencesOfTopics: {
-            people: people, 
-            places: places
+            people: Object.entries(occurencesOfTopics.people).sort((a, b) => b[1] - a[1]).slice(0, 5), 
+            places: Object.entries(occurencesOfTopics.places).sort((a, b) => b[1] - a[1]).slice(0, 5)
         }
     }
 }
 
-function pushTwitterData(candidate) {
+function pushTwitterData(candidate) { // NOTE: add raw tweets to the db to run analysis on during route call
     return axios.get(apiURL, dynamodbInfo[candidate].axiosOptions)
         .then(searchRes => {
-            const resultJSON = JSON.stringify(searchRes.data.data); // NOTE: might need to be async, sequential should be fine here though)
+            const resultJSON = JSON.stringify(searchRes.data.data);
             dynamodbDocClient.put(dynamodbInfo[candidate].GenerateKeysWithInfo(resultJSON)).promise().then(() => {
                 console.log(`Successfully uploaded data to DynamoDB at ${dynamodbInfo[candidate].TableName}`);
             }).catch(err => console.error(err));
@@ -190,17 +174,11 @@ function redisAdd(key, secondsToExpire, data) {
     }).catch(err => console.log(err));
 }
 
-function generateResponse(data) {
+function generateResponse(data) { // NOTE: get all tweets over a time period and run the analysis on them collectively
     let tweets = [];
-    data.Items.forEach(object => {
-        let o = JSON.parse(object.info);
-        o.forEach(tweet => tweets.push(tweet))
-    })
-    let responseTweets = addSentimentAndCompromiseToData(tweets);
-    let resdata = {responseTweets, graphInfo};
-    return(resdata);
+    data.Items.forEach(o => JSON.parse(o.info).forEach(tweet => tweets.push(tweet)));
+    return addSentimentAndCompromiseToData(tweets);
 }
-
 
 router.get('/api/no-redis-sentiment/:unix/:candidate', (req, res) => {
     return dynamodbDocClient.scan({
