@@ -94,11 +94,13 @@ function TwitterHome() {
       setError(false);
       axios.get(request)
       .then((response) => {
-            setPeopleTopics(response.data.responseTweets.occurencesOfTopics.people);
-            setPlacesTopics(response.data.responseTweets.occurencesOfTopics.places);
-            setSentiment(response.data.responseTweets.overallSentiment);
-            setTopFiveNegative(response.data.responseTweets.sentimentRanked.topNeg);
-            setTopFivePositive(response.data.responseTweets.sentimentRanked.topPos);
+
+        console.log(response)
+            setPeopleTopics(response.data.occurencesOfTopics.people);
+            setPlacesTopics(response.data.occurencesOfTopics.places);
+            setSentiment(response.data.overallSentiment);
+            setTopFiveNegative(response.data.sentimentRanked.topNeg);
+            setTopFivePositive(response.data.sentimentRanked.topPos);
             setLoading(false);
       })
       .catch((e) =>{

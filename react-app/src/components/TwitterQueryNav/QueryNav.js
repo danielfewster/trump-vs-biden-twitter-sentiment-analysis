@@ -153,7 +153,7 @@ function QueryNav() {
                                 className="btn-round" type="button"  size="lg"
                                 aria-haspopup={true}
                                 caret
-                                color={redisColor}
+                                color="danger"
                                 >
                                 {redis}
                                 </DropdownToggle>
